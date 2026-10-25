@@ -44,5 +44,12 @@ if manifest_path:
             + ". Read the upstream notice, then rerun this workflow with confirmation."
         )
 
+before = git("rev-parse", "HEAD", capture=True).stdout.strip()
 git("merge", "--no-edit", "upstream/main")
 git("push", "origin", "HEAD:main")
+
+after = git("rev-parse", "HEAD", capture=True).stdout.strip()
+output_path = os.environ.get("GITHUB_OUTPUT")
+if output_path:
+    with open(output_path, "a") as output:
+        output.write(f"changed={str(before != after).lower()}\n")

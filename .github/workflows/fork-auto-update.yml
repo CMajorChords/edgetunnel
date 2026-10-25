@@ -32,8 +32,23 @@ jobs:
           ssh-key: ${{ secrets.UPSTREAM_SYNC_SSH_KEY }}
 
       - name: Merge upstream and push to trigger Cloudflare Pages
+        id: sync
         env:
           UPSTREAM_REPO: cmliu/edgetunnel
           BREAKING_MANIFEST_PATH: ""
           CONFIRM_BREAKING_UPDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_breaking_update == true }}
         run: python3 .github/fork-auto-update/sync.py
+
+      - name: Request the EdgeTunnel Pages deployment
+        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          PAGES_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import urllib.request
+          request = urllib.request.Request(os.environ["PAGES_DEPLOY_HOOK_URL"], data=b"", method="POST")
+          with urllib.request.urlopen(request, timeout=30) as response:
+              assert 200 <= response.status < 300
+          print("Cloudflare Pages accepted the deployment request.")
+          PYTHON
