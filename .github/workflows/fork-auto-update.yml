@@ -45,10 +45,19 @@ jobs:
           PAGES_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}
         run: |
           python3 - <<'PYTHON'
+          import json
           import os
+          import sys
+          import urllib.error
           import urllib.request
           request = urllib.request.Request(os.environ["PAGES_DEPLOY_HOOK_URL"], data=b"", method="POST")
-          with urllib.request.urlopen(request, timeout=30) as response:
-              assert 200 <= response.status < 300
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  assert 200 <= response.status < 300
+          except urllib.error.HTTPError as error:
+              details = json.load(error)
+              for item in details.get("errors", []):
+                  print(f"Cloudflare {item.get('code')}: {item.get('message')}", file=sys.stderr)
+              raise SystemExit(1)
           print("Cloudflare Pages accepted the deployment request.")
           PYTHON
